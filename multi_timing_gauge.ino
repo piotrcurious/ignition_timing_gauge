@@ -1,6 +1,4 @@
-I'll try to create that. Here is the code I generated:
 
-```c
 // Arduino code for graphical ignition timing indicator
 // using 4-1 cam shaft sensor signal and ignition module signal
 // using 128x32 monochrome adafruit OLED module for display
