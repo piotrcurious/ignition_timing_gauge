@@ -150,3 +150,142 @@ display.drawBitmap(exp_x +64 -4 /2 +4 /4 *3 /4 *3 /4 *3 /4 *3 /4 *3 /4 *3 /4 *3 
 display.drawPattern(pattern,sizeof(pattern)/sizeof(uint16_t),exp_x+64-16,y1+8-16,y1+8+16);
 
 }
+
+
+// interrupt service routine for cam shaft sensor signal
+void cam_isr() {
+  if (digitalRead(CAM_PIN) == HIGH) { // if rising edge
+    cam_rise = micros(); // record the time of rising edge
+  } else { // if falling edge
+    cam_fall = micros(); // record the time of falling edge
+    timing = (cam_fall - ign_rise) / 1000.0f * 0.36f; // calculate the ignition timing in degrees BTDC
+    Serial.print("Timing: "); Serial.println(timing); // print the timing to serial monitor
+    switch (mode) { // switch case for different visualization modes
+      case 1: // mode 1: timing line and dot
+        display.clearDisplay(); // clear the display buffer
+        int x1 = map(cam_rise / 100000.0f, -180.00f, -360.00f, -64, -128); // map the time of cam shaft sensor rising edge to x coordinate of timing line start point
+        int x2 = map(cam_fall / 100000.0f, -180.00f, -360.00f, -64, -128); // map the time of cam shaft sensor falling edge to x coordinate of timing line end point
+        x1 = constrain(x1, -64, -128); // constrain the x coordinate of timing line start point to fit the screen width
+        x2 = constrain(x2, -64, -128); // constrain the x coordinate of timing line end point to fit the screen width
+        int y1 = SCREEN_HEIGHT / 2; // set the y coordinate of timing line start and end points to half of the screen height
+        int y2 = y1; 
+        int dot_x = map(timing, -10.00f, -40.00f, -64, -128); // map the timing value to x coordinate of timing dot
+        int dot_y = y1; // set the y coordinate of timing dot to half of the screen height
+        dot_x = constrain(dot_x, -64, -128); // constrain the x coordinate of timing dot to fit the screen width
+        display.drawLine(x1 + 64, y1 + 8, x2 + 64, y2 + 8, SSD1306_WHITE); // draw the timing line with white color and offset by half of the screen width and height
+        display.fillCircle(dot_x + 64, dot_y + 8, 2, SSD1306_WHITE); // draw the timing dot with white color and offset by half of the screen width and height
+        break;
+      case 2: // mode 2: timing line and expected line
+        display.clearDisplay(); // clear the display buffer
+        x1 = map(cam_rise / 100000.0f, -180.00f, -360.00f, -64, -128); // map the time of cam shaft sensor rising edge to x coordinate of timing line start point
+        x2 = map(cam_fall / 100000.0f, -180.00f, -360.00f, -64, -128); // map the time of cam shaft sensor falling edge to x coordinate of timing line end point
+        x1 = constrain(x1, -64, -128); // constrain the x coordinate of timing line start point to fit the screen width
+        x2 = constrain(x2, -64, -128); // constrain the x coordinate of timing line end point to fit the screen width
+        y1 = SCREEN_HEIGHT / 2; // set the y coordinate of timing line start and end points to half of the screen height
+        y2 = y1; 
+        dot_x = map(timing, -10.00f, -40.00f, -64, -128); // map the timing value to x coordinate of timing dot
+        dot_y = y1; // set the y coordinate of timing dot to half of the screen height
+        dot_x = constrain(dot_x, -64, -128); // constrain the x coordinate of timing dot to fit the screen width
+        int exp_x = map(expected_timing, -10.00f, -40.00f, -64, -128); // map the expected timing value to x coordinate of expected line start and end points
+        exp_x = constrain(exp_x, -64, -128); // constrain the x coordinate of expected line start and end points to fit the screen width
+        
+display.drawLine(x1+64,y1+8,x2+64,y2+8 ,SSD1306_WHITE ); 
+display.fillCircle(dot_x+64,dot_y+8 ,2 ,SSD1306_WHITE ); 
+
+uint16_t pattern []= {4 }; 
+
+display.drawBitmap(exp_x+64-4/2+4/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*3/4*5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5}; 
+
+display.drawPattern(pattern,sizeof(pattern)/sizeof(uint16_t),exp_x+64-16,y1+8-16,y1+8+16);
+        
+    }
+    display.display(); // update the display with buffer contents
+    
+  }
+}
+
+// interrupt service routine for ignition module signal
+void ign_isr() {
+  if (digitalRead(IGN_PIN) == HIGH) { // if rising edge
+    ign_rise = micros(); // record the time of rising edge
+    dwell = (ign_rise - ign_fall) / 1000.0f; // calculate the dwell time in milliseconds
+    Serial.print("Dwell: "); Serial.println(dwell); // print the dwell time to serial monitor
+    
+    switch (mode) { // switch case for different visualization modes
+      
+      case 0: // mode 0: dwell and ign bars
+        
+        display.clearDisplay(); // clear the display buffer
+        
+        display.setTextSize(1); // set text size to one pixel per character height and width
+        display.setTextColor(SSD1306_WHITE); // set text color to white
+        
+        display.setCursor(0 ,0 ); 
+display.print("Dwell: "); 
+display.print(dwell ); 
+display.println(" ms"); 
+        
+display.setCursor(64 ,0 ); 
+display.print("Ign: "); 
+display.print(ign ); 
+display.println(" ms"); 
+        
+int dwell_bar=map(dwell *1000.0f ,0 ,20000 ,0 ,SCREEN_HEIGHT-8 ); 
+int ign_bar=map(ign *1000.0f ,0 ,20000 ,0 ,SCREEN_HEIGHT-8 ); 
+        
+dwell_bar=constrain(dwell_bar ,0 ,SCREEN_HEIGHT-8 ); 
+ign_bar=constrain(ign_bar ,0 ,SCREEN_HEIGHT-8 ); 
+        
+display.fillRect(32 ,8 ,16 ,dwell_bar ,SSD1306_WHITE ); 
+display.fillRect(80 ,8 ,16 ,ign_bar ,SSD1306_WHITE ); 
+        
+break;
+      
+    }
+    
+    display.display(); 
+    
+  } else { 
+    
+    ign_fall=micros (); 
+    
+    ign=(ign_fall-ign_rise )/1000.0f ; 
+    
+    Serial.print("Ign: "); Serial.println(ign ); 
+    
+    switch (mode ) { 
+      
+      case 0 : 
+        
+display.clearDisplay (); 
+        
+display.setTextSize(1 ); 
+display.setTextColor(SSD1306_WHITE ); 
+        
+display.setCursor(0 ,0 ); 
+display.print("Dwell: "); 
+display.print(dwell ); 
+display.println(" ms"); 
+        
+display.setCursor(64 ,0 ); 
+display.print("Ign: "); 
+display.print(ign ); 
+display.println(" ms"); 
+        
+int dwell_bar=map(dwell *1000.0f ,0 ,20000 ,0 ,SCREEN_HEIGHT-8 ); 
+int ign_bar=map(ign *1000.0f ,0 ,20000 ,0 ,SCREEN_HEIGHT-8 ); 
+        
+dwell_bar=constrain(dwell_bar ,0 ,SCREEN_HEIGHT-8 ); 
+ign_bar=constrain(ign_bar ,0 ,SCREEN_HEIGHT-8 ); 
+        
+display.fillRect(32 ,8 ,16 ,dwell_bar ,SSD1306_WHITE ); 
+display.fillRect(80 ,8 ,16 ,ign_bar ,SSD1306_WHITE ); 
+        
+break;
+      
+    }
+    
+    display.display (); 
+    
+  }
+}
