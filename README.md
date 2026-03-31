@@ -16,10 +16,10 @@ Useful to help determining set points for engine temperature, load, rpm and fuel
 The project includes a robust mock Arduino environment and a Python-based physics hardware emulator.
 The test system captures display snapshots during simulation to verify functionality across different operating points.
 
-### Captured Snapshots (Final Version)
+### Captured Snapshots (Primary Gauge)
 Here are snapshots from the simulation of `timing_gauge_fixed_final.ino`:
 
-| Mode 0 (Dwell/Ign) | Mode 1 (Timing) | Mode 2 (Timing + Target) |
+| Mode 0 (Dwell & Ign Bars) | Mode 1 (Timing & RPM) | Mode 2 (Timing + Target) |
 | :---: | :---: | :---: |
 | ![Mode 0](snapshots/snapshot_fixed_final_gauge_0.png) | ![Mode 1](snapshots/snapshot_fixed_final_gauge_1.png) | ![Mode 2](snapshots/snapshot_fixed_final_gauge_2.png) |
 
@@ -36,9 +36,9 @@ Here are snapshots from the simulation of `timing_gauge_fixed_final.ino`:
 
 ## File Structure
 - `timing_gauge_fixed_final.ino`: Primary, fully functional implementation with dynamic RPM and refined timing logic.
-- `multi_timing_gauge.ino` / `multi_timing_gauge2.ino`: Alternative multi-mode versions, fully functional.
-- `timing_gauge.ino` / `timing_gauge_simple2.ino`: Legacy and simple versions, functional.
-- `tester.ino` / `tester2.ino`: Signal generators for testing hardware gauges (tester2 simulates 4-1 wheel).
+- `multi_timing_gauge.ino` / `multi_timing_gauge2.ino`: Alternative multi-mode versions.
+- `timing_gauge.ino` / `timing_gauge_simple2.ino`: Functional gauge variants.
+- `tester.ino` / `tester2.ino`: Signal generators for testing hardware gauges.
 - `emulator_runner.py`: Python script to run simulation and capture snapshots.
 - `mock_arduino/`: C++ mock layer for Arduino and Adafruit libraries.
 - `snapshots/`: Visual verification results.

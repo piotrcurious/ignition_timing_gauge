@@ -46,7 +46,10 @@ static uint8_t pin_values[32] = {0};
 static int analog_values[32] = {0};
 
 void pinMode(uint8_t pin, uint8_t mode) {
-    if (pin < 32) pin_modes[pin] = mode;
+    if (pin < 32) {
+        pin_modes[pin] = mode;
+        if (mode == INPUT_PULLUP) pin_values[pin] = HIGH;
+    }
 }
 
 void digitalWrite(uint8_t pin, uint8_t val) {
