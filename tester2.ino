@@ -32,16 +32,11 @@ unsigned long camTimer = 0; // Timer for the cam sensor signal
 unsigned long ignTimer = 0; // Timer for the ignition module signal
 int camState = LOW; // Current state of the cam sensor signal
 int ignState = LOW; // Current state of the ignition module signal
+int camTransitions = 0;
 
 void setup() {
   // Initialize serial communication for debugging purposes
   Serial.begin(9600);
-
-  // Set up the analog input pins and read the initial values for the cam sensor frequency and the ignition timing
-  pinMode(CAM_FREQ_PIN, INPUT);
-  pinMode(IGN_TIMING_PIN, INPUT);
-  camFreq = map(analogRead(CAM_FREQ_PIN), 0, 1023, MIN_FREQ, MAX_FREQ);
-  ignTiming = map(analogRead(IGN_TIMING_PIN), 0, 1023, MIN_IGNITION, MAX_IGNITION);
 
   // Set up the digital output pins and set them to low initially
   pinMode(CAM_OUT_PIN, OUTPUT);
@@ -49,6 +44,8 @@ void setup() {
   digitalWrite(CAM_OUT_PIN, LOW);
   digitalWrite(IGN_OUT_PIN, LOW);
 
+  camTimer = micros();
+  ignTimer = micros();
 }
 
 
@@ -62,10 +59,7 @@ void loop() {
   camHalfPeriod = camPeriod / 2;
 
   // Calculate the dwell time from the lookup table based on the cam sensor frequency
-  dwellTime = dwellTable[map(camFreq, MIN_FREQ, MAX_FREQ, 0, 9)];
-
-  // Constrain the dwell time to the minimum and maximum values
-  dwellTime = constrain(dwellTime, MIN_DWELL, MAX_DWELL);
+  dwellTime = dwellTable[constrain(map(camFreq, MIN_FREQ, MAX_FREQ, 0, 9), 0, 9)];
 
   // Calculate the ignition angle from the ignition timing in degrees
   ignAngle = map(ignTiming, MIN_IGNITION, MAX_IGNITION, MIN_ANGLE, MAX_ANGLE);
@@ -80,46 +74,31 @@ void loop() {
   if (currentTime - camTimer >= camHalfPeriod) {
     // Toggle the cam sensor signal state
     camState = !camState;
-
-    // Write the new state to the output pin
     digitalWrite(CAM_OUT_PIN, camState);
-
-    // Update the cam sensor timer
     camTimer = currentTime;
 
     // Increment the number of transitions
     camTransitions++;
 
-    // Check if it's time to reset the number of transitions
-    if (camTransitions == 4) {
-      // Reset the number of transitions
+    // 4-1 cam sensor: 8 transitions per cycle (4 pulses), but one is missing.
+    // Let's say transitions 6 and 7 are missing.
+    if (camTransitions >= 8) {
       camTransitions = 0;
     }
     
-    // Check if it's time to make a longer transition
-    if (camTransitions == 2 && (camState == LOW && ignState == HIGH) || (camTransitions == 3 && camState == HIGH && ignState == LOW)) {
-      // Make a longer transition by adding half of the dwell time to the cam half period
-      camHalfPeriod += (dwellTime * 500);
+    // Simulate missing pulse on 4th pulse (transitions 6, 7)
+    if (camTransitions == 6 || camTransitions == 7) {
+        digitalWrite(CAM_OUT_PIN, LOW);
+        camState = LOW;
     }
-    
-    // Check if it's time to make a normal transition
-    if (camTransitions == 1 && (camState == LOW && ignState == HIGH) || (camTransitions == 0 && camState == HIGH && ignState == LOW)) {
-      // Make a normal transition by subtracting half of the dwell time from the cam half period
-      camHalfPeriod -= (dwellTime * 500);
-    }
-    
-    // Check if it's time to toggle the ignition module signal
-    if (camTransitions == 2 && ignDelay > 0) || (camTransitions == 3 && ignDelay < 0) {
-      // Toggle the ignition module signal state using the opposite of the cam sensor signal state
-      ignState = !camState;
-
-      // Write the new state to the output pin
-      digitalWrite(IGN_OUT_PIN, ignState);
-
-      // Update the ignition module timer
-      ignTimer = currentTime;
-    }
-    
   }
 
+  // Ignition logic synchronized with cam (e.g. dwell starts on transition 4, ends on transition 5)
+  if (camTransitions == 4 && ignState == LOW) {
+      ignState = HIGH;
+      digitalWrite(IGN_OUT_PIN, HIGH);
+  } else if (camTransitions == 5 && ignState == HIGH) {
+      ignState = LOW;
+      digitalWrite(IGN_OUT_PIN, LOW);
+  }
 }
