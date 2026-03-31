@@ -21,12 +21,12 @@
 const int dwellTable[10] = {10, 9, 8, 7, 6, 5, 4, 3, 2, 1}; // Dwell time in milliseconds for each frequency range
 
 // Declare some global variables for storing the signal values and states
-int camFreq = 0; // Cam sensor frequency in Hz
+int camFreq = 10; // Cam sensor frequency in Hz
 int ignTiming = 0; // Ignition timing in milliseconds
-int dwellTime = 0; // Dwell time in milliseconds
+int dwellTime = 5; // Dwell time in milliseconds
 int ignAngle = 0; // Ignition angle in degrees
-unsigned long camPeriod = 0; // Cam sensor period in microseconds
-unsigned long camHalfPeriod = 0; // Cam sensor half period in microseconds
+unsigned long camPeriod = 100000; // Cam sensor period in microseconds
+unsigned long camHalfPeriod = 50000; // Cam sensor half period in microseconds
 unsigned long ignDelay = 0; // Ignition delay in microseconds
 unsigned long camTimer = 0; // Timer for the cam sensor signal
 unsigned long ignTimer = 0; // Timer for the ignition module signal
@@ -37,18 +37,14 @@ void setup() {
   // Initialize serial communication for debugging purposes
   Serial.begin(9600);
 
-  // Set up the analog input pins and read the initial values for the cam sensor frequency and the ignition timing
-  pinMode(CAM_FREQ_PIN, INPUT);
-  pinMode(IGN_TIMING_PIN, INPUT);
-  camFreq = map(analogRead(CAM_FREQ_PIN), 0, 1023, MIN_FREQ, MAX_FREQ);
-  ignTiming = map(analogRead(IGN_TIMING_PIN), 0, 1023, MIN_IGNITION, MAX_IGNITION);
-
   // Set up the digital output pins and set them to low initially
   pinMode(CAM_OUT_PIN, OUTPUT);
   pinMode(IGN_OUT_PIN, OUTPUT);
   digitalWrite(CAM_OUT_PIN, LOW);
   digitalWrite(IGN_OUT_PIN, LOW);
 
+  camTimer = micros();
+  ignTimer = micros();
 }
 
 
@@ -62,10 +58,7 @@ void loop() {
   camHalfPeriod = camPeriod / 2;
 
   // Calculate the dwell time from the lookup table based on the cam sensor frequency
-  dwellTime = dwellTable[map(camFreq, MIN_FREQ, MAX_FREQ, 0, 9)];
-
-  // Constrain the dwell time to the minimum and maximum values
-  dwellTime = constrain(dwellTime, MIN_DWELL, MAX_DWELL);
+  dwellTime = dwellTable[constrain(map(camFreq, MIN_FREQ, MAX_FREQ, 0, 9), 0, 9)];
 
   // Calculate the ignition angle from the ignition timing in degrees
   ignAngle = map(ignTiming, MIN_IGNITION, MAX_IGNITION, MIN_ANGLE, MAX_ANGLE);
@@ -78,25 +71,16 @@ void loop() {
 
   // Check if it's time to toggle the cam sensor signal
   if (currentTime - camTimer >= camHalfPeriod) {
-    // Toggle the cam sensor signal state
     camState = !camState;
-
-    // Write the new state to the output pin
     digitalWrite(CAM_OUT_PIN, camState);
-
-    // Update the cam sensor timer
     camTimer = currentTime;
   }
 
   // Check if it's time to toggle the ignition module signal
-  if (currentTime - ignTimer >= dwellTime * 1000 + ignDelay) {
-    // Toggle the ignition module signal state
+  // Simplified logic for tester
+  if (currentTime - ignTimer >= dwellTime * 1000) {
     ignState = !ignState;
-
-    // Write the new state to the output pin
     digitalWrite(IGN_OUT_PIN, ignState);
-
-    // Update the ignition module timer
     ignTimer = currentTime;
   }
 }

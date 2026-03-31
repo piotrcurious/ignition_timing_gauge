@@ -24,6 +24,7 @@ class ArduinoEmulator:
 
         content = '#include "Arduino.h"\n#include "Adafruit_GFX.h"\n#include "Adafruit_SSD1306.h"\n#include "Wire.h"\n' + ino_content
 
+        # Catch-all for non-standard drawBitmap calls
         content = re.sub(r'display\.drawBitmap\(.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?,.*?\);', 'display.drawBitmap(0,0,nullptr,0,0,1);', content)
         content = re.sub(r'display\.drawBitmap\(exp_x\s\+64\s-4\s/2\s\+4\s/4\s\*(.*?)\);', 'display.drawBitmap(exp_x, 0, nullptr, 0, 0, 1);', content)
 
@@ -31,10 +32,11 @@ class ArduinoEmulator:
             f.write(content)
 
         cmd = ["g++", "-I", "mock_arduino", "mock_arduino/Arduino.cpp", "mock_arduino/Wire.cpp", "mock_arduino/main.cpp", self.temp_cpp, "-o", self.exe_file]
-        print(f"Compiling {self.ino_file}...")
+        # print(f"Compiling {self.ino_file}...")
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode != 0:
             print(f"Compilation failed for {self.ino_file}")
+            print(res.stderr)
             return False
         return True
 
@@ -111,48 +113,65 @@ def run_test(ino_file, name):
     cycle_duration = 100000
     step_us = 5000
     snapshot_count = 0
-    # Simulating 5 seconds
-    capture_times = [1000000, 2500000, 4000000]
-    for cycle in range(50):
-        for step in range(0, cycle_duration, step_us):
+
+    if "gauge" in name:
+        for cycle in range(100):
+            for step in range(0, cycle_duration, step_us):
+                t += step_us
+                emu.send_cmd(f"TIME {t}")
+                phase = (step % cycle_duration) / cycle_duration
+                if phase < 0.25: cam_val = 1 if (phase % 0.25) < 0.125 else 0
+                elif phase < 0.5: cam_val = 1 if (phase % 0.25) < 0.125 else 0
+                elif phase < 0.75: cam_val = 1 if (phase % 0.25) < 0.125 else 0
+                else: cam_val = 0
+                emu.send_cmd(f"PIN 2 {cam_val}")
+                ign_val = 1 if (0.5 <= phase <= 0.55) else 0
+                emu.send_cmd(f"PIN 3 {ign_val}")
+
+                if t == 1500000: emu.send_cmd("PIN 4 0")
+                elif t == 1510000: emu.send_cmd("PIN 4 1")
+                elif t == 3500000: emu.send_cmd("PIN 4 0")
+                elif t == 3505000: emu.send_cmd("PIN 4 1")
+
+                emu.send_cmd("STEP")
+                outputs = emu.read_output(timeout=0)
+                for line in outputs:
+                    if line.startswith("DISPLAY_DUMP"):
+                        # Fixed range check for robustness
+                        if snapshot_count == 0 and 1000000 <= t <= 1010000:
+                            buffer_to_image(line, f"snapshots/snapshot_{name}_{snapshot_count}.png")
+                            snapshot_count += 1
+                        elif snapshot_count == 1 and 3000000 <= t <= 3010000:
+                            buffer_to_image(line, f"snapshots/snapshot_{name}_{snapshot_count}.png")
+                            snapshot_count += 1
+                        elif snapshot_count == 2 and 4500000 <= t <= 4510000:
+                            buffer_to_image(line, f"snapshots/snapshot_{name}_{snapshot_count}.png")
+                            snapshot_count += 1
+    else:
+        for step in range(0, 500000, step_us):
             t += step_us
             emu.send_cmd(f"TIME {t}")
-            phase = (step % cycle_duration) / cycle_duration
-            if phase < 0.25: cam_val = 1 if (phase % 0.25) < 0.125 else 0
-            elif phase < 0.5: cam_val = 1 if (phase % 0.25) < 0.125 else 0
-            elif phase < 0.75: cam_val = 1 if (phase % 0.25) < 0.125 else 0
-            else: cam_val = 0
-            emu.send_cmd(f"PIN 2 {cam_val}")
-            ign_val = 1 if (0.5 <= phase <= 0.55) else 0
-            emu.send_cmd(f"PIN 3 {ign_val}")
-
-            if t == 1500000: emu.send_cmd("PIN 4 0")
-            elif t == 1505000: emu.send_cmd("PIN 4 1")
-            elif t == 3000000: emu.send_cmd("PIN 4 0")
-            elif t == 3005000: emu.send_cmd("PIN 4 1")
-
             emu.send_cmd("STEP")
-            outputs = emu.read_output(timeout=0)
-            for line in outputs:
-                if line.startswith("DISPLAY_DUMP"):
-                    if t in capture_times:
-                        buffer_to_image(line, f"snapshots/snapshot_{name}_{snapshot_count}.png")
-                        snapshot_count += 1
+            emu.read_output(timeout=0)
+
     emu.stop()
     print(f"Done testing {name}.")
 
 if __name__ == "__main__":
     files = [
-        ("timing_gauge_fixed_final.ino", "fixed_final"),
+        ("timing_gauge_fixed_final.ino", "fixed_final_gauge"),
         ("timing_gauge.ino", "timing_gauge"),
-        ("timing_gauge_simple2.ino", "simple2")
+        ("timing_gauge_simple2.ino", "simple2_gauge"),
+        ("multi_timing_gauge.ino", "multi1_gauge"),
+        ("multi_timing_gauge2.ino", "multi2_gauge"),
+        ("tester.ino", "tester"),
+        ("tester2.ino", "tester2")
     ]
     if os.path.exists("snapshots"):
         shutil.rmtree("snapshots")
     os.makedirs("snapshots")
     for f, n in files:
         run_test(f, n)
-    # Clean artifacts
     for f in os.listdir("."):
         if f.startswith("emu_bin_") or f.startswith("temp_"):
             try: os.remove(f)

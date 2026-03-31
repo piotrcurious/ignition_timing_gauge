@@ -25,11 +25,11 @@ volatile unsigned long last_cam_rise = 0;
 volatile unsigned long ign_rise = 0;
 volatile unsigned long ign_fall = 0;
 volatile float rpm = 0;
-volatile float deg_per_us = 0;
 
 volatile float dwell = 0;
 volatile float ign = 0;
 volatile float timing = 0;
+volatile float deg_per_us = 0.0036f;
 
 int mode = 0;
 int pot_value = 0;
@@ -41,11 +41,8 @@ void cam_isr() {
       unsigned long now = micros();
       if (last_cam_rise > 0) {
           unsigned long period = now - last_cam_rise;
-          // 4-1 wheel: 1 cycle (360 deg) = 4 pulses, but one is missing.
-          // So the period between pulses is 90 degrees if regular, 180 if missing.
-          // We can estimate RPM and deg_per_us.
           if (period > 0) {
-              rpm = 60000000.0f / (period * 4.0f); // Roughly
+              rpm = 60000000.0f / (period * 4.0f);
               deg_per_us = 360.0f / (period * 4.0f);
           }
       }
@@ -53,8 +50,6 @@ void cam_isr() {
       cam_rise = now;
   } else {
       cam_fall = micros();
-      // On a 4-1 wheel, say cam_fall of Pulse 1 is Top Dead Center (TDC)
-      // Timing is degrees BTDC. If spark happened before TDC:
       if (ign_rise > 0 && cam_fall > ign_rise) {
           timing = (float)(cam_fall - ign_rise) * deg_per_us;
       }
@@ -63,11 +58,11 @@ void cam_isr() {
 
 void ign_isr() {
   if (digitalRead(IGN_PIN) == HIGH) {
-      ign_rise = micros();
-      if (ign_fall > 0) dwell = (float)(ign_rise - ign_fall) / 1000.0f;
+    ign_rise = micros();
+    if (ign_fall > 0) dwell = (float)(ign_rise - ign_fall) / 1000.0f;
   } else {
-      ign_fall = micros();
-      if (ign_rise > 0) ign = (float)(ign_fall - ign_rise) / 1000.0f;
+    ign_fall = micros();
+    if (ign_rise > 0) ign = (float)(ign_fall - ign_rise) / 1000.0f;
   }
 }
 
