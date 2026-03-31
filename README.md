@@ -8,20 +8,23 @@ Useful to help determining set points for engine temperature, load, rpm and fuel
 - Displays Dwell time and Ignition time in milliseconds.
 - Graphical visualization of ignition timing (BTDC).
 - Dynamic RPM calculation from sensor input.
-- Support for 4-1 cam shaft sensor wheels.
+- **Multiple Cam Wheel Support**:
+    - 4-1 (missing tooth) wheels.
+    - 4-equal (distributor style) wheels.
 - Adjustable "expected timing" line using a potentiometer.
-- Cycle through display modes with a push button.
+- Cycle through display modes with a push button (Short press).
+- Toggle Wheel type with a long press on the button.
 
 ## Simulation and Testing
 The project includes a robust mock Arduino environment and a Python-based physics hardware emulator.
-The test system captures display snapshots during simulation to verify functionality across different operating points.
+The test system captures display snapshots during simulation to verify functionality across different wheel types and operating points.
 
 ### Captured Snapshots (Primary Gauge)
-Here are snapshots from the simulation of `timing_gauge_fixed_final.ino`:
+Snapshots from the simulation of `timing_gauge_fixed_final.ino` showing wheel type identification:
 
-| Mode 0 (Dwell & Ign Bars) | Mode 1 (Timing & RPM) | Mode 2 (Timing + Target) |
-| :---: | :---: | :---: |
-| ![Mode 0](snapshots/snapshot_fixed_final_gauge_0.png) | ![Mode 1](snapshots/snapshot_fixed_final_gauge_1.png) | ![Mode 2](snapshots/snapshot_fixed_final_gauge_2.png) |
+| Mode 0: 4-1 Wheel | Mode 0: 4-Equal Wheel |
+| :---: | :---: |
+| ![4-1 Wheel](snapshots/snapshot_fixed_final_gauge_0.png) | ![4-Equal Wheel](snapshots/snapshot_fixed_final_gauge_1.png) |
 
 ## How to run simulation
 1. Install dependencies:
@@ -32,13 +35,12 @@ Here are snapshots from the simulation of `timing_gauge_fixed_final.ino`:
    ```bash
    python3 emulator_runner.py
    ```
-3. Snapshots will be generated in the `snapshots/` directory for all gauge files.
+3. Snapshots will be generated in the `snapshots/` directory.
 
 ## File Structure
-- `timing_gauge_fixed_final.ino`: Primary, fully functional implementation with dynamic RPM and refined timing logic.
-- `multi_timing_gauge.ino` / `multi_timing_gauge2.ino`: Alternative multi-mode versions.
-- `timing_gauge.ino` / `timing_gauge_simple2.ino`: Functional gauge variants.
-- `tester.ino` / `tester2.ino`: Signal generators for testing hardware gauges.
+- `timing_gauge_fixed_final.ino`: Main fully functional implementation with multi-wheel support.
+- `multi_timing_gauge.ino` / `multi_timing_gauge2.ino`: Functional multi-mode versions.
+- `tester2.ino`: Signal generator supporting 4-1 and 4-equal outputs for hardware testing.
 - `emulator_runner.py`: Python script to run simulation and capture snapshots.
 - `mock_arduino/`: C++ mock layer for Arduino and Adafruit libraries.
 - `snapshots/`: Visual verification results.

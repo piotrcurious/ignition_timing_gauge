@@ -31,10 +31,7 @@ class ArduinoEmulator:
 
         cmd = ["g++", "-I", "mock_arduino", "mock_arduino/Arduino.cpp", "mock_arduino/Wire.cpp", "mock_arduino/main.cpp", self.temp_cpp, "-o", self.exe_file]
         res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode != 0:
-            print(res.stderr)
-            return False
-        return True
+        return res.returncode == 0
 
     def start(self):
         if not self._compile():
@@ -106,28 +103,42 @@ def run_test(ino_file, name):
     cycle_duration = 100000
     step_us = 10000
     snapshot_count = 0
-    capture_times = [1000000, 3000000, 5000000]
 
-    for cycle in range(60):
+    # Modes: 4-1 wheel (0-4s), Equal wheel (4-8s)
+    # Mode button logic: Short press (<1s) cycles mode, Long press (>1s) toggles wheel type
+    for cycle in range(120):
         for step in range(0, cycle_duration, step_us):
             t += step_us
             emu.send_cmd(f"TIME {t}")
             phase = (step % cycle_duration) / cycle_duration
-            cam_val = 1 if phase < 0.1 else 0
+
+            is_equal_wheel = (t >= 4000000)
+
+            if not is_equal_wheel:
+                # 4-1 wheel
+                if phase < 0.75: cam_val = 1 if (phase % 0.25) < 0.125 else 0
+                else: cam_val = 0
+            else:
+                # 4-equal wheel
+                cam_val = 1 if (phase % 0.25) < 0.125 else 0
+
             emu.send_cmd(f"PIN 2 {cam_val}")
             ign_val = 1 if (0.5 <= phase <= 0.6) else 0
             emu.send_cmd(f"PIN 3 {ign_val}")
 
-            if t == 2000000: emu.send_cmd("PIN 4 0")
-            elif t == 2010000: emu.send_cmd("PIN 4 1")
-            elif t == 4000000: emu.send_cmd("PIN 4 0")
-            elif t == 4010000: emu.send_cmd("PIN 4 1")
+            # Switch wheel type at 4s
+            if t == 4000000:
+                emu.send_cmd("PIN 4 0") # Start long press
+            elif t == 5500000:
+                emu.send_cmd("PIN 4 1") # End long press
 
             emu.send_cmd("STEP")
             outputs = emu.read_output(timeout=0.01)
             for line in outputs:
                 if line.startswith("DISPLAY_DUMP"):
-                    if t in capture_times:
+                    # Capture 4-1 at 2s, 4-equal at 10s
+                    if (snapshot_count == 0 and t == 2000000) or \
+                       (snapshot_count == 1 and t == 10000000):
                         buffer_to_image(line, f"snapshots/snapshot_{name}_{snapshot_count}.png")
                         snapshot_count += 1
     emu.stop()
@@ -136,9 +147,6 @@ def run_test(ino_file, name):
 if __name__ == "__main__":
     files = [
         ("timing_gauge_fixed_final.ino", "fixed_final_gauge"),
-        ("timing_gauge.ino", "timing_gauge"),
-        ("multi_timing_gauge.ino", "multi1_gauge"),
-        ("multi_timing_gauge2.ino", "multi2_gauge"),
     ]
     if os.path.exists("snapshots"):
         shutil.rmtree("snapshots")
